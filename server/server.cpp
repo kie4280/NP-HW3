@@ -13,8 +13,8 @@
 #include <unordered_map>
 #include <vector>
 
-#include "../socket.h"
-#include "database.h"
+#include "socket.h"
+#include "server/database.h"
 
 TCP_socket TCPsock;
 UDP_socket UDPsock;
@@ -48,6 +48,7 @@ void on_C_readPost(TCP_socket &, const Data_package *);
 void on_C_deletePost(TCP_socket &, const Data_package *);
 void on_C_updatePost(TCP_socket &, const Data_package *);
 void on_C_comment(TCP_socket &, const Data_package *);
+void on_C_joinroom(TCP_socket &, const Data_package *);
 
 void on_sig(int signal) { exit(EXIT_SUCCESS); }
 
@@ -158,6 +159,8 @@ void handleTCP(TCP_socket tcpsock) {
       on_C_updatePost(tcpsock, &rec);
     } else if (type == "TYPE_COMMENT") {
       on_C_comment(tcpsock, &rec);
+    } else if(type == "TYPE_JOIN_ROOM") {
+
     }
   }
 }
@@ -377,6 +380,29 @@ void on_C_comment(TCP_socket &tcpsock, const Data_package *recv_data) {
     lk.unlock();
     out.fields["message"] =
         db.comment(serial, username, recv_data->fields.at("comment"));
+  }
+  tcpsock.send(&out);
+}
+
+void on_C_joinroom(TCP_socket &tcpsock, const Data_package *recv_data) {
+  Data_package out;
+  out.fields["type"] = recv_data->fields.at("type");
+  int userID = std::stoi(recv_data->fields.at("transaction_id"));
+  
+  if (userID == -1) {
+    out.fields["message"] = "1";
+  } else {
+    UL lk(login_mutex);
+    std::string username = logins.at(userID);
+    lk.unlock();
+    Chatroom cr;
+    bool exists = db.getRoom(username, cr);
+    if (exists && cr.opened) {
+      out.fields["message"] = "2";
+      out.fields["port"] = std::to_string(cr.host.sin_port);
+      out.fields["addr"] = std::to_string(cr.host.sin_addr.s_addr);
+      out.fields["username"] = username;
+    }
   }
   tcpsock.send(&out);
 }

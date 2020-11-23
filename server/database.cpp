@@ -296,6 +296,17 @@ std::string Database::comment(int serial, std::string user,
   }
   POST &p = posts.at(serial);
   p.comments.push_back(std::make_tuple(user, content));
-
+  
   return "Comment successfully.\n";
 }
+
+bool Database::getRoom(std::string roomname, Chatroom &room) {
+  UL rl(roommux);
+  if (rooms.find(roomname) != rooms.end()) {
+    room = rooms.at(roomname);
+    return true;
+  }
+  return false;
+}
+
+

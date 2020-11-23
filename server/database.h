@@ -3,6 +3,7 @@
 
 #define DB_FILENAME "server.db"
 
+#include <arpa/inet.h>
 #include <sqlite3.h>
 
 #include <array>
@@ -32,6 +33,19 @@ struct POST {
   std::vector<std::tuple<std::string, std::string>> comments;
 };
 
+struct Chatroom {
+  Chatroom(){};
+  Chatroom(const Chatroom &old) {
+    roomname = old.roomname;
+    host = old.host;
+    opened = old.opened;
+  }
+  std::string roomname;
+  sockaddr_in host;
+  bool opened = false;
+};
+
+
 class Database {
  public:
   Database();
@@ -52,6 +66,9 @@ class Database {
   std::string updatePost(int serial, std::string user, bool title,
                          std::string replace);
   std::string comment(int serial, std::string user, std::string content);
+  std::string createChatroom(int port);
+  bool getRoom(std::string roomname, Chatroom &room);
+  std::string listChatroom();
 
  private:
   sqlite3 *db;
@@ -62,6 +79,8 @@ class Database {
       boardInfos;
   std::map<int, POST> posts;
   std::mutex postmux, boardmux;
+  std::mutex roommux;
+  std::unordered_map<std::string, Chatroom> rooms;
 };
 
 #endif

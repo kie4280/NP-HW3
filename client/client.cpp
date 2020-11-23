@@ -1,3 +1,5 @@
+#include "client/client.h"
+
 #include <arpa/inet.h>
 #include <signal.h>
 
@@ -6,33 +8,17 @@
 #include <memory>
 #include <regex>
 #include <string>
-#include <unordered_map>
-#include <vector>
 
-#include "../socket.h"
+#include "socket.h"
 
-void on_C_exit();
-void startClient();
-std::string on_C_listUser();
-std::string on_C_whoami();
-std::string on_C_logout();
-std::string on_C_login(std::string username, std::string password);
-std::string on_C_register(std::string username, std::string email,
-                          std::string password);
-std::string on_C_createBoard(std::string boardname);
-std::string on_C_createPost(std::string boardname, std::string title,
-                            std::string content);
-std::string on_C_listBoard();
-std::string on_C_listPost(std::string boardname);
-std::string on_C_readPost(int serial);
-std::string on_C_deletePost(int serial);
-std::string on_C_updatePost(int serial, bool title, std::string replacement);
-std::string on_C_comment(int serial, std::string comment);
+#define MODE_BBS 1
+#define MODE_CHAT 2
 
-struct sockaddr_in serv_addr;
-UDP_socket UDPsock;
-TCP_socket TCPsock;
+struct sockaddr_in bbs_serv_addr;
+UDP_socket bbs_UDPsock, chat_UDPsock;
+TCP_socket bbs_TCPsock, chat_TCPsock;
 int login_token = -1;
+int mode;
 
 void on_sig(int sig) { exit(EXIT_SUCCESS); }
 
@@ -52,171 +38,21 @@ int main(int argc, char **argv) {
   if ((serv_port = strtol(argv[2], nullptr, 10)) == 0L) {
     error("Invalid port number");
   }
-  serv_addr.sin_family = AF_INET;
-  serv_addr.sin_port = htons(serv_port);
+  bbs_serv_addr.sin_family = AF_INET;
+  bbs_serv_addr.sin_port = htons(serv_port);
   in_addr ad_input;
   if (inet_aton(argv[1], &ad_input) == 0) {
     error("Invalid address");
   }
 
-  serv_addr.sin_addr.s_addr = ad_input.s_addr;
-  TCPsock.connect(serv_addr);
+  bbs_serv_addr.sin_addr.s_addr = ad_input.s_addr;
+  bbs_TCPsock.connect(bbs_serv_addr);
   Data_package pack;
-  TCPsock.recv(&pack);
+  bbs_TCPsock.recv(&pack);
   std::cout << pack.fields["message"] << std::endl;
   startClient();
 
   return 0;
-}
-
-void on_C_exit() {
-  Data_package send_data;
-  send_data.fields["type"] = "TYPE_EXIT";
-  send_data.fields["transaction_id"] = std::to_string(login_token);
-  TCPsock.send(&send_data);
-  exit(EXIT_SUCCESS);
-}
-std::string on_C_listUser() {
-  Data_package send_data;
-  send_data.fields["type"] = "TYPE_LIST_USER";
-  TCPsock.send(&send_data);
-  Data_package data_recv;
-  TCPsock.recv(&data_recv);
-  return data_recv.fields["message"];
-}
-std::string on_C_whoami() {
-  Data_package out;
-  out.fields["type"] = "TYPE_WHOAMI";
-  out.fields["transaction_id"] = std::to_string(login_token);
-  UDPsock.send(serv_addr, &out);
-  Data_package in;
-  UDPsock.recv(nullptr, &in);
-  return in.fields["message"];
-}
-std::string on_C_logout() {
-  Data_package send_data;
-  send_data.fields["type"] = "TYPE_LOGOUT";
-  send_data.fields["transaction_id"] = std::to_string(login_token);
-  TCPsock.send(&send_data);
-  Data_package recv_data;
-  TCPsock.recv(&recv_data);
-  login_token = stoi(recv_data.fields["transaction_id"]);
-  return recv_data.fields["message"];
-}
-std::string on_C_login(std::string username, std::string password) {
-  Data_package send_data, recv_data;
-  send_data.fields["type"] = "TYPE_LOGIN";
-  send_data.fields["message"] = username + " " + password;
-  send_data.fields["transaction_id"] = std::to_string(login_token);
-  TCPsock.send(&send_data);
-  TCPsock.recv(&recv_data);
-  login_token = stoi(recv_data.fields["transaction_id"]);
-  return recv_data.fields["message"];
-}
-std::string on_C_register(std::string username, std::string email,
-                          std::string password) {
-  Data_package pack;
-  pack.fields["type"] = "TYPE_REGISTER";
-  pack.fields["message"] = username + " " + email + " " + password;
-  int stat = UDPsock.send(serv_addr, &pack);
-  if (stat == -1) {
-    warn("Register send failed");
-  }
-  Data_package data;
-
-  if ((stat = UDPsock.recv(nullptr, &data)) > 0) {
-  } else if (stat == 0) {
-    error("Connection closed");
-  } else {
-    error(strerror(errno));
-  }
-  return data.fields["message"];
-}
-
-std::string on_C_createBoard(std::string boardname) {
-  Data_package send_data;
-  send_data.fields["type"] = "TYPE_CREATE_BOARD";
-  send_data.fields["boardname"] = boardname;
-  send_data.fields["transaction_id"] = std::to_string(login_token);
-  TCPsock.send(&send_data);
-  Data_package recv_data;
-  TCPsock.recv(&recv_data);
-  return recv_data.fields["message"];
-}
-std::string on_C_createPost(std::string boardname, std::string title,
-                            std::string content) {
-  Data_package send_data;
-  send_data.fields["type"] = "TYPE_CREATE_POST";
-  send_data.fields["boardname"] = boardname;
-  send_data.fields["title"] = title;
-  send_data.fields["content"] = content;
-  send_data.fields["transaction_id"] = std::to_string(login_token);
-  TCPsock.send(&send_data);
-  Data_package recv_data;
-  TCPsock.recv(&recv_data);
-  return recv_data.fields["message"];
-}
-std::string on_C_listBoard() {
-  Data_package send_data;
-  send_data.fields["type"] = "TYPE_LIST_BOARD";
-  send_data.fields["transaction_id"] = std::to_string(login_token);
-  TCPsock.send(&send_data);
-  Data_package recv_data;
-  TCPsock.recv(&recv_data);
-  return recv_data.fields["message"];
-}
-std::string on_C_listPost(std::string boardname) {
-  Data_package send_data;
-  send_data.fields["type"] = "TYPE_LIST_POST";
-  send_data.fields["boardname"] = boardname;
-  send_data.fields["transaction_id"] = std::to_string(login_token);
-  TCPsock.send(&send_data);
-  Data_package recv_data;
-  TCPsock.recv(&recv_data);
-  return recv_data.fields["message"];
-}
-std::string on_C_readPost(int serial) {
-  Data_package send_data;
-  send_data.fields["type"] = "TYPE_READ_POST";
-  send_data.fields["postserial"] = std::to_string(serial);
-  send_data.fields["transaction_id"] = std::to_string(login_token);
-  TCPsock.send(&send_data);
-  Data_package recv_data;
-  TCPsock.recv(&recv_data);
-  return recv_data.fields["message"];
-}
-std::string on_C_deletePost(int serial) {
-  Data_package send_data;
-  send_data.fields["type"] = "TYPE_DELETE_POST";
-  send_data.fields["postserial"] = std::to_string(serial);
-  send_data.fields["transaction_id"] = std::to_string(login_token);
-  TCPsock.send(&send_data);
-  Data_package recv_data;
-  TCPsock.recv(&recv_data);
-  return recv_data.fields["message"];
-}
-std::string on_C_updatePost(int serial, bool title, std::string replacement) {
-  Data_package send_data;
-  send_data.fields["type"] = "TYPE_UPDATE_POST";
-  send_data.fields["postserial"] = std::to_string(serial);
-  send_data.fields["istitle"] = std::to_string(title);
-  send_data.fields["replacement"] = replacement;
-  send_data.fields["transaction_id"] = std::to_string(login_token);
-  TCPsock.send(&send_data);
-  Data_package recv_data;
-  TCPsock.recv(&recv_data);
-  return recv_data.fields["message"];
-}
-std::string on_C_comment(int serial, std::string comment) {
-  Data_package send_data;
-  send_data.fields["type"] = "TYPE_COMMENT";
-  send_data.fields["postserial"] = std::to_string(serial);
-  send_data.fields["comment"] = comment;
-  send_data.fields["transaction_id"] = std::to_string(login_token);
-  TCPsock.send(&send_data);
-  Data_package recv_data;
-  TCPsock.recv(&recv_data);
-  return recv_data.fields["message"];
 }
 
 void startClient() {
@@ -391,6 +227,45 @@ void startClient() {
         } else {
           warn("Usage: comment <post-S/N> <comment>");
         }
+      } else if (ma[1].str() == "create-chatroom") {
+        const std::regex args_reg("^([0-9]+)$");
+        std::smatch argsm;
+        std::string args = ma[2].str();
+        bool matched = std::regex_match(args, argsm, args_reg);
+        if (matched) {
+          std::string reply = on_C_createChatroom(std::stoi(argsm[1].str()));
+          std::cout << reply << std::flush;
+        } else {
+          warn("Usage: create-chatroom <port>");
+        }
+      } else if (ma[1].str() == "list-chatroom") {
+        if (ma[2].str().size() == 0) {
+          std::string reply = on_C_listChatroom();
+          std::cout << reply << std::flush;
+        } else {
+          warn("Usage: list-chatroom");
+        }
+      } else if (ma[1].str() == "join-chatroom") {
+        const std::regex args_reg("^(.+)$");
+        std::smatch argsm;
+        std::string args = ma[2].str();
+        bool matched = std::regex_match(args, argsm, args_reg);
+        if (matched) {
+          sockaddr_in chat_addr;
+          std::string username;
+          int reply = on_C_joinChatroom(argsm[1].str(), chat_addr, username);
+          if (reply == 1) {
+            std::cout << "Please login first." << std::flush;
+          } else if (reply == 2) {
+            std::cout << "The chatroom does not exist or the chatroom is close."
+                      << std::endl;
+          } else {
+            startChat(chat_addr, username);
+          }
+
+        } else {
+          warn("Usage: join-chatroom <chatroom_name>");
+        }
       }
 
       else {
@@ -400,4 +275,26 @@ void startClient() {
 
     std::cout << "% " << std::flush;
   }
+}
+
+void startChat(sockaddr_in chat_addr, std::string username) {
+  mode = MODE_CHAT;
+  chat_TCPsock.connect(chat_addr);
+  Data_package recv_data;
+  chat_TCPsock.recv(&recv_data);
+  std::cout << recv_data.fields["message"];
+  Data_package send_data;
+  send_data.fields["type"] = "TYPE_JOIN_ROOM";
+  send_data.fields["username"] = username;
+  chat_TCPsock.send(&send_data);
+  while (mode == MODE_CHAT) {
+  }
+}
+
+void sendMessage() {
+
+}
+
+void recvMessage() {
+  
 }

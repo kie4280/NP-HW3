@@ -537,3 +537,9 @@ TCP_socket::~TCP_socket() {
     warn("TCP sock destroyed");
   }
 }
+
+int TCP_socket::getSockDes() { return TCPsock; }
+
+bool TCP_socket::operator==(const TCP_socket &sock) const {
+  return TCPsock == sock.TCPsock;
+}

@@ -85,6 +85,9 @@ class TCP_socket {
   void bind(sockaddr_in);
   void listen(int listensize = 20);
   TCP_socket accept();
+  int getSockDes();
+  bool isOpen();
+  bool operator==(const TCP_socket &sock) const;
 
  private:
   int TCPsock;
