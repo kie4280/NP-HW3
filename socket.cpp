@@ -511,21 +511,36 @@ void TCP_socket::listen(int listensize) {
   }
 }
 
-TCP_socket TCP_socket::accept() {
+bool TCP_socket::accept(TCP_socket &sock, bool blocking) {
   int so;
   sockaddr_in connect_addr;
   socklen_t len = sizeof(connect_addr);
-  if ((so = ::accept(TCPsock, (sockaddr *)&connect_addr, &len)) < 0) {
-    if (errno == EINTR) {
-    } else {
-      warn(strerror(errno));
-      error("Error accepting tcp connection");
+  if (blocking) {
+    if ((so = ::accept(TCPsock, (sockaddr *)&connect_addr, &len)) < 0) {
+      if (errno == EINTR) {
+      } else {
+        warn(strerror(errno));
+        error("Error accepting tcp connection");
+      }
     }
-  }
-  TCP_socket sock(so);
-  sock.connect_addr = connect_addr;
+    sock = TCP_socket(so);
+    sock.connect_addr = connect_addr;
+    return true;
+  } else {
+    if ((so = ::accept4(TCPsock, (sockaddr *)&connect_addr, &len,
+                        SOCK_NONBLOCK)) < 0) {
+      if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) {
+        return false;
+      } else {
+        warn(strerror(errno));
+        error("Error accepting tcp connection");
+      }
+    }
+    sock = TCP_socket(so);
+    sock.connect_addr = connect_addr;
 
-  return sock;
+    return true;
+  }
 }
 
 void TCP_socket::disconnect() { shutdown(TCPsock, SHUT_RDWR); }

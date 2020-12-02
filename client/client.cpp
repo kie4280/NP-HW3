@@ -11,14 +11,11 @@
 
 #include "socket.h"
 
-#define MODE_BBS 1
-#define MODE_CHAT 2
-
 struct sockaddr_in bbs_serv_addr;
 UDP_socket bbs_UDPsock, chat_UDPsock;
 TCP_socket bbs_TCPsock, chat_TCPsock;
 int login_token = -1;
-int mode;
+int mode = MODE_BBS;
 
 void on_sig(int sig) { exit(EXIT_SUCCESS); }
 
@@ -233,8 +230,22 @@ void startClient() {
         std::string args = ma[2].str();
         bool matched = std::regex_match(args, argsm, args_reg);
         if (matched) {
-          std::string reply = on_C_createChatroom(std::stoi(argsm[1].str()));
-          std::cout << reply << std::flush;
+          std::string username;
+          int result_code = on_C_createChatroom(argsm[1].str(), username);
+          if (result_code == 0) {
+            std::cout << "start to create chatroom..." << std::endl;
+            int port = std::stoi(argsm[1].str());
+            sockaddr_in addr;
+            addr.sin_family = AF_INET;
+            addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+            addr.sin_port = htons(port);
+            startServer(port);
+            startChat(addr, username);
+          } else if (result_code == 1) {
+            std::cout << "Please login first." << std::endl;
+          } else if (result_code == 2) {
+            std::cout << "User has already created the chatroom" << std::endl;
+          }
         } else {
           warn("Usage: create-chatroom <port>");
         }
@@ -259,7 +270,7 @@ void startClient() {
           } else if (reply == 2) {
             std::cout << "The chatroom does not exist or the chatroom is close."
                       << std::endl;
-          } else {
+          } else if (reply == 0) {
             startChat(chat_addr, username);
           }
 
@@ -280,21 +291,16 @@ void startClient() {
 void startChat(sockaddr_in chat_addr, std::string username) {
   mode = MODE_CHAT;
   chat_TCPsock.connect(chat_addr);
-  Data_package recv_data;
-  chat_TCPsock.recv(&recv_data);
-  std::cout << recv_data.fields["message"];
-  Data_package send_data;
+  Data_package send_data, recv_data;
   send_data.fields["type"] = "TYPE_JOIN_ROOM";
   send_data.fields["username"] = username;
   chat_TCPsock.send(&send_data);
+  chat_TCPsock.recv(&recv_data);
+  std::cout << recv_data.fields.at("message") << std::flush;
   while (mode == MODE_CHAT) {
   }
 }
 
-void sendMessage() {
+void sendMessage() {}
 
-}
-
-void recvMessage() {
-  
-}
+void recvMessage() {}

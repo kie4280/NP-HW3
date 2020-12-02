@@ -31,7 +31,7 @@ struct UDP_MSG {
     msgid = old.msgid;
   }
 
-  bool operator==(const UDP_MSG &co) const{
+  bool operator==(const UDP_MSG &co) const {
     if (co.addr.sin_addr.s_addr == addr.sin_addr.s_addr &&
         co.addr.sin_port == addr.sin_port && co.msgid == msgid) {
       return true;
@@ -84,7 +84,8 @@ class TCP_socket {
   void disconnect();
   void bind(sockaddr_in);
   void listen(int listensize = 20);
-  TCP_socket accept();
+  bool accept(TCP_socket &sock, bool blocking = true);
+
   int getSockDes();
   bool isOpen();
   bool operator==(const TCP_socket &sock) const;

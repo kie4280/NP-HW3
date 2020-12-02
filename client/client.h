@@ -7,6 +7,8 @@
 
 #define ROOM_OP_LEAVE "leave"
 #define ROOM_OP_CLOSE "close"
+#define MODE_BBS 1
+#define MODE_CHAT 2
 
 extern struct sockaddr_in bbs_serv_addr;
 extern UDP_socket bbs_UDPsock, chat_UDPsock;
@@ -16,6 +18,7 @@ extern int login_token;
 void on_C_exit();
 void startClient();
 void startChat(sockaddr_in chat_addr, std::string username);
+void startServer(int port);
 std::string getTime();
 std::string on_C_listUser();
 std::string on_C_whoami();
@@ -32,7 +35,7 @@ std::string on_C_readPost(int serial);
 std::string on_C_deletePost(int serial);
 std::string on_C_updatePost(int serial, bool title, std::string replacement);
 std::string on_C_comment(int serial, std::string comment);
-std::string on_C_createChatroom(int port);
+int on_C_createChatroom(std::string port, std::string &username);
 std::string on_C_listChatroom();
 int on_C_joinChatroom(std::string roomname, sockaddr_in &chat_addr,
                       std::string &username);

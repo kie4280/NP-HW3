@@ -162,9 +162,27 @@ std::string on_C_comment(int serial, std::string comment) {
   return recv_data.fields["message"];
 }
 
-std::string on_C_createChatroom(int port) {}
+int on_C_createChatroom(std::string port, std::string &username) {
+  Data_package send_data;
+  send_data.fields["type"] = "TYPE_CREATE_CHATROOM";
+  send_data.fields["transaction_id"] = std::to_string(login_token);
+  send_data.fields["port"] = port;
+  bbs_TCPsock.send(&send_data);
+  Data_package recv_data;
+  bbs_TCPsock.recv(&recv_data);
+  username = recv_data.fields.at("username");
+  int result_code = std::stoi(recv_data.fields.at("result_code"));
+  return result_code;
+}
 
-std::string on_C_listChatroom() {}
+std::string on_C_listChatroom() {
+  Data_package send_data;
+  send_data.fields["type"] = "TYPE_LIST_CHATROOM";
+  bbs_UDPsock.send(bbs_serv_addr, &send_data);
+  Data_package recv_data;
+  bbs_UDPsock.recv(nullptr, &recv_data);
+  return recv_data.fields["message"];
+}
 
 int on_C_joinChatroom(std::string roomname, sockaddr_in &chat_addr,
                       std::string &username) {
@@ -176,7 +194,7 @@ int on_C_joinChatroom(std::string roomname, sockaddr_in &chat_addr,
   bbs_TCPsock.recv(&recv_data);
   username = recv_data.fields["username"];
   chat_addr.sin_family = AF_INET;
-  chat_addr.sin_addr.s_addr = std::stoi(recv_data.fields["addr"]);
-  chat_addr.sin_port = std::stoi(recv_data.fields["port"]);
+  chat_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+  chat_addr.sin_port = htons(std::stoi(recv_data.fields.at("port")));
   return std::stoi(recv_data.fields["message"]);
 }

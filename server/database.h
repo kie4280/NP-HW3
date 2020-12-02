@@ -37,14 +37,13 @@ struct Chatroom {
   Chatroom(){};
   Chatroom(const Chatroom &old) {
     roomname = old.roomname;
-    host = old.host;
+    port = old.port;
     opened = old.opened;
   }
   std::string roomname;
-  sockaddr_in host;
+  int port;
   bool opened = false;
 };
-
 
 class Database {
  public:
@@ -66,8 +65,9 @@ class Database {
   std::string updatePost(int serial, std::string user, bool title,
                          std::string replace);
   std::string comment(int serial, std::string user, std::string content);
-  std::string createChatroom(int port);
+  int createChatroom(int port, std::string roomname);
   bool getRoom(std::string roomname, Chatroom &room);
+  bool setRoom(std::string roomname, Chatroom &room);
   std::string listChatroom();
 
  private:
@@ -81,6 +81,7 @@ class Database {
   std::mutex postmux, boardmux;
   std::mutex roommux;
   std::unordered_map<std::string, Chatroom> rooms;
+  std::unordered_map<int, std::string> port_room_map;
 };
 
 #endif

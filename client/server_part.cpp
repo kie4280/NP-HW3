@@ -60,9 +60,14 @@ void server_listener(int serv_port) {
     chat_listen_so.bind(chat_serv_addr);
     chat_listen_so.listen();
     while (true) {
-      TCP_socket so = chat_listen_so.accept();
-      std::thread b(server_recv_command, so);
-      b.detach();
+      TCP_socket so;
+      bool hascon = chat_listen_so.accept(so, false);
+      if (hascon) {
+        std::thread b(server_recv_command, so);
+        b.detach();
+      } else {
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+      }
     }
 
   } catch (std::exception e) {
@@ -79,9 +84,7 @@ void broadcastMSG(ChatRecord &msg, std::vector<TCP_socket> &who) {
   }
 }
 
-void server_broadcast_worker() {
-
-}
+void server_broadcast_worker() {}
 
 void server_recv_command(TCP_socket tcpsock) {
   Data_package send_data;
@@ -142,7 +145,8 @@ void server_recv_command(TCP_socket tcpsock) {
         msg_mux.lock();
         latest_msg.push_back(ch);
         msg_mux.unlock();
-      } else if (type == "") {}
+      } else if (type == "") {
+      }
     }
   }
 }

@@ -296,7 +296,7 @@ std::string Database::comment(int serial, std::string user,
   }
   POST &p = posts.at(serial);
   p.comments.push_back(std::make_tuple(user, content));
-  
+
   return "Comment successfully.\n";
 }
 
@@ -309,4 +309,37 @@ bool Database::getRoom(std::string roomname, Chatroom &room) {
   return false;
 }
 
+bool Database::setRoom(std::string roomname, Chatroom &room) {
+  UL r1(roommux);
+  if (rooms.find(roomname) != rooms.end()) {
+    rooms[roomname] = room;
+    return true;
+  }
+  return false;
+}
 
+int Database::createChatroom(int port, std::string roomname) {
+  UL r1(roommux);
+  if (port_room_map.find(port) != port_room_map.end()) {
+    return 2;
+  }
+  Chatroom ch;
+  ch.port = port;
+  ch.opened = true;
+  ch.roomname = roomname;
+  port_room_map[port] = roomname;
+  rooms[roomname] = ch;
+  return 0;
+}
+
+std::string Database::listChatroom() {
+  UL r1(roommux);
+  std::stringstream ss;
+  ss << std::left << std::setw(20) << "Chatroom_name" << std::left << "Status"
+     << std::endl;
+  for (std::unordered_map<std::string, Chatroom>::iterator it = rooms.begin();
+       it != rooms.end(); ++it) {
+    ss << std::left << std::setw(20) << it->second.roomname << std::left
+       << (it->second.opened ? "open" : "closed") << std::endl;
+  }
+}

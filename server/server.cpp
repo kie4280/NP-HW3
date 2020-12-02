@@ -13,8 +13,8 @@
 #include <unordered_map>
 #include <vector>
 
-#include "socket.h"
 #include "server/database.h"
+#include "socket.h"
 
 TCP_socket TCPsock;
 UDP_socket UDPsock;
@@ -49,6 +49,9 @@ void on_C_deletePost(TCP_socket &, const Data_package *);
 void on_C_updatePost(TCP_socket &, const Data_package *);
 void on_C_comment(TCP_socket &, const Data_package *);
 void on_C_joinroom(TCP_socket &, const Data_package *);
+void on_C_list_chatroom(sockaddr_in &, const Data_package *);
+void on_C_create_chatroom(TCP_socket &, const Data_package *);
+void on_C_restart_chatroom(TCP_socket &, const Data_package *);
 
 void on_sig(int signal) { exit(EXIT_SUCCESS); }
 
@@ -99,9 +102,11 @@ void dispatchUDP() {
     std::string type = data_recv.fields["type"];
     if (type == "TYPE_REGISTER") {
       on_C_register(return_addr, &data_recv);
-    } else if (type == "TYPE_WHOAMI")
+    } else if (type == "TYPE_WHOAMI") {
       on_C_whoami(return_addr, &data_recv);
-
+    } else if (type == "TYPE_LIST_CHATROOM") {
+      on_C_list_chatroom(return_addr, &data_recv);
+    }
     // std::cout << data_recv.message << std::endl;
   }
 }
@@ -109,12 +114,15 @@ void dispatchUDP() {
 void dispatchTCP() {
   std::vector<std::future<void>> futures;
   while (canrun) {
-    TCP_socket sock = TCPsock.accept();
-    std::packaged_task<void(TCP_socket)> task(handleTCP);
-    std::future<void> result = task.get_future();
-    std::thread a(std::move(task), sock);
-    a.detach();
-    futures.push_back(std::move(result));
+    TCP_socket sock;
+    bool hascon = TCPsock.accept(sock);
+    if (hascon) {
+      std::packaged_task<void(TCP_socket)> task(handleTCP);
+      std::future<void> result = task.get_future();
+      std::thread a(std::move(task), sock);
+      a.detach();
+      futures.push_back(std::move(result));
+    }
   }
 }
 
@@ -159,8 +167,11 @@ void handleTCP(TCP_socket tcpsock) {
       on_C_updatePost(tcpsock, &rec);
     } else if (type == "TYPE_COMMENT") {
       on_C_comment(tcpsock, &rec);
-    } else if(type == "TYPE_JOIN_ROOM") {
-
+    } else if (type == "TYPE_JOIN_ROOM") {
+      on_C_joinroom(tcpsock, &rec);
+    } else if (type == "TYPE_CREATE_CHATROOM") {
+      on_C_create_chatroom(tcpsock, &rec);
+    } else if (type == "TYPE_RESTART_CHATROOM") {
     }
   }
 }
@@ -388,9 +399,9 @@ void on_C_joinroom(TCP_socket &tcpsock, const Data_package *recv_data) {
   Data_package out;
   out.fields["type"] = recv_data->fields.at("type");
   int userID = std::stoi(recv_data->fields.at("transaction_id"));
-  
+
   if (userID == -1) {
-    out.fields["message"] = "1";
+    out.fields["result_code"] = "1";
   } else {
     UL lk(login_mutex);
     std::string username = logins.at(userID);
@@ -398,10 +409,71 @@ void on_C_joinroom(TCP_socket &tcpsock, const Data_package *recv_data) {
     Chatroom cr;
     bool exists = db.getRoom(username, cr);
     if (exists && cr.opened) {
-      out.fields["message"] = "2";
-      out.fields["port"] = std::to_string(cr.host.sin_port);
-      out.fields["addr"] = std::to_string(cr.host.sin_addr.s_addr);
+      out.fields["result_code"] = "0";
+      out.fields["port"] = std::to_string(cr.port);
       out.fields["username"] = username;
+    } else {
+      out.fields["result_code"] = "2";
+    }
+  }
+  tcpsock.send(&out);
+}
+
+void on_C_list_chatroom(sockaddr_in &addr, const Data_package *recv_data) {
+  Data_package out;
+  out.fields["type"] = "TYPE_LIST_CHATROOM";
+  if (std::stoi(recv_data->fields.at("transaction_id")) != -1) {
+    out.fields["message"] = db.listChatroom();
+  } else {
+    out.fields["message"] = "Please login first.\n";
+  }
+
+  UDPsock.send(addr, &out);
+}
+
+void on_C_create_chatroom(TCP_socket &tcpsock, const Data_package *recv_data) {
+  UL lm(login_mutex);
+  Data_package out;
+  out.fields["type"] = "TYPE_CREATE_CHATROOM";
+
+  int login_id = std::stoi(recv_data->fields.at("transaction_id"));
+  if (login_id == -1) {
+    out.fields["result_code"] = "1";
+  } else {
+    std::string roomname = logins.at(login_id);
+    int stat =
+        db.createChatroom(std::stoi(recv_data->fields.at("port")), roomname);
+    if (stat == 0) {
+      out.fields["result_code"] = "0";
+    } else if (stat == 2) {
+      out.fields["result_cpde"] = "2";
+    }
+    out.fields["username"] = roomname;
+  }
+  tcpsock.send(&out);
+}
+
+void on_C_restart_chatroom(TCP_socket &tcpsock, const Data_package *recv_data) {
+  UL lm(login_mutex);
+  Data_package out;
+
+  int login_id = std::stoi(recv_data->fields.at("transaction_id"));
+  if (login_id == -1) {
+    out.fields["result_code"] = "1";
+  } else {
+    std::string roomname = logins.at(login_id);
+    Chatroom ch;
+    bool exist = db.getRoom(roomname, ch);
+    if (exist) {
+      if (ch.opened) {
+        out.fields["result_code"] = "3";
+      } else {
+        ch.opened = true;
+        db.setRoom(roomname, ch);
+        out.fields["result_code"] = "0";
+      }
+    } else {
+      out.fields["result_code"] = "2";
     }
   }
   tcpsock.send(&out);
