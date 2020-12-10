@@ -170,14 +170,17 @@ int on_C_createChatroom(std::string port, std::string &username) {
   bbs_TCPsock.send(&send_data);
   Data_package recv_data;
   bbs_TCPsock.recv(&recv_data);
-  username = recv_data.fields.at("username");
   int result_code = std::stoi(recv_data.fields.at("result_code"));
+  if (result_code == 0) {
+    username = recv_data.fields.at("username");
+  }
   return result_code;
 }
 
 std::string on_C_listChatroom() {
   Data_package send_data;
   send_data.fields["type"] = "TYPE_LIST_CHATROOM";
+  send_data.fields["transaction_id"] = std::to_string(login_token);
   bbs_UDPsock.send(bbs_serv_addr, &send_data);
   Data_package recv_data;
   bbs_UDPsock.recv(nullptr, &recv_data);
@@ -196,5 +199,5 @@ int on_C_joinChatroom(std::string roomname, sockaddr_in &chat_addr,
   chat_addr.sin_family = AF_INET;
   chat_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
   chat_addr.sin_port = htons(std::stoi(recv_data.fields.at("port")));
-  return std::stoi(recv_data.fields["message"]);
+  return std::stoi(recv_data.fields["result_code"]);
 }

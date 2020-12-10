@@ -5,8 +5,8 @@
 
 #include "socket.h"
 
-#define ROOM_OP_LEAVE "leave"
-#define ROOM_OP_CLOSE "close"
+// #define ROOM_OP_LEAVE "leave"
+// #define ROOM_OP_CLOSE "close"
 #define MODE_BBS 1
 #define MODE_CHAT 2
 

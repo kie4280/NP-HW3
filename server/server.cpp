@@ -115,14 +115,13 @@ void dispatchTCP() {
   std::vector<std::future<void>> futures;
   while (canrun) {
     TCP_socket sock;
-    bool hascon = TCPsock.accept(sock);
-    if (hascon) {
-      std::packaged_task<void(TCP_socket)> task(handleTCP);
-      std::future<void> result = task.get_future();
-      std::thread a(std::move(task), sock);
-      a.detach();
-      futures.push_back(std::move(result));
-    }
+    TCPsock.accept(sock);
+
+    std::packaged_task<void(TCP_socket)> task(handleTCP);
+    std::future<void> result = task.get_future();
+    std::thread a(std::move(task), sock);
+    a.detach();
+    futures.push_back(std::move(result));
   }
 }
 
@@ -446,7 +445,7 @@ void on_C_create_chatroom(TCP_socket &tcpsock, const Data_package *recv_data) {
     if (stat == 0) {
       out.fields["result_code"] = "0";
     } else if (stat == 2) {
-      out.fields["result_cpde"] = "2";
+      out.fields["result_code"] = "2";
     }
     out.fields["username"] = roomname;
   }

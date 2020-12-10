@@ -342,4 +342,5 @@ std::string Database::listChatroom() {
     ss << std::left << std::setw(20) << it->second.roomname << std::left
        << (it->second.opened ? "open" : "closed") << std::endl;
   }
+  return ss.str();
 }

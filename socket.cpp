@@ -511,36 +511,21 @@ void TCP_socket::listen(int listensize) {
   }
 }
 
-bool TCP_socket::accept(TCP_socket &sock, bool blocking) {
+bool TCP_socket::accept(TCP_socket &sock) {
   int so;
   sockaddr_in connect_addr;
   socklen_t len = sizeof(connect_addr);
-  if (blocking) {
-    if ((so = ::accept(TCPsock, (sockaddr *)&connect_addr, &len)) < 0) {
-      if (errno == EINTR) {
-      } else {
-        warn(strerror(errno));
-        error("Error accepting tcp connection");
-      }
-    }
-    sock = TCP_socket(so);
-    sock.connect_addr = connect_addr;
-    return true;
-  } else {
-    if ((so = ::accept4(TCPsock, (sockaddr *)&connect_addr, &len,
-                        SOCK_NONBLOCK)) < 0) {
-      if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) {
-        return false;
-      } else {
-        warn(strerror(errno));
-        error("Error accepting tcp connection");
-      }
-    }
-    sock = TCP_socket(so);
-    sock.connect_addr = connect_addr;
 
-    return true;
+  if ((so = ::accept(TCPsock, (sockaddr *)&connect_addr, &len)) < 0) {
+    if (errno == EINTR) {
+    } else {
+      warn(strerror(errno));
+      error("Error accepting tcp connection");
+    }
   }
+  sock = TCP_socket(so);
+  sock.connect_addr = connect_addr;
+  return true;
 }
 
 void TCP_socket::disconnect() { shutdown(TCPsock, SHUT_RDWR); }
@@ -557,4 +542,13 @@ int TCP_socket::getSockDes() { return TCPsock; }
 
 bool TCP_socket::operator==(const TCP_socket &sock) const {
   return TCPsock == sock.TCPsock;
+}
+
+TCP_socket &TCP_socket::operator=(const TCP_socket &sock) {
+  TCPsock = sock.TCPsock;
+  closed = sock.closed;
+  connect_addr = sock.connect_addr;
+  instances = sock.instances;
+  (*instances)++;
+  return *this;
 }

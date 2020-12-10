@@ -84,11 +84,12 @@ class TCP_socket {
   void disconnect();
   void bind(sockaddr_in);
   void listen(int listensize = 20);
-  bool accept(TCP_socket &sock, bool blocking = true);
+  bool accept(TCP_socket &sock);
 
   int getSockDes();
   bool isOpen();
   bool operator==(const TCP_socket &sock) const;
+  TCP_socket &operator=(const TCP_socket &sock);
 
  private:
   int TCPsock;
