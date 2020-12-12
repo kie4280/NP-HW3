@@ -141,7 +141,7 @@ void handleTCP(TCP_socket tcpsock) {
     if (len == 0) {
       break;
     }
-    std::string type = rec.fields["type"];
+    std::string type = rec.fields.at("type");
     if (type == "TYPE_LOGIN") {
       on_C_login(tcpsock, &rec);
     } else if (type == "TYPE_LOGOUT") {
@@ -166,11 +166,12 @@ void handleTCP(TCP_socket tcpsock) {
       on_C_updatePost(tcpsock, &rec);
     } else if (type == "TYPE_COMMENT") {
       on_C_comment(tcpsock, &rec);
-    } else if (type == "TYPE_JOIN_ROOM") {
+    } else if (type == "TYPE_JOIN_CHATROOM") {
       on_C_joinroom(tcpsock, &rec);
     } else if (type == "TYPE_CREATE_CHATROOM") {
       on_C_create_chatroom(tcpsock, &rec);
     } else if (type == "TYPE_RESTART_CHATROOM") {
+      on_C_restart_chatroom(tcpsock, &rec);
     }
   }
 }

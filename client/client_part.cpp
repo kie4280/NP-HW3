@@ -190,9 +190,27 @@ std::string on_C_listChatroom() {
 int on_C_joinChatroom(std::string roomname, sockaddr_in &chat_addr,
                       std::string &username) {
   Data_package send_data;
-  send_data.fields["type"] = "TYPE_JOIN_ROOM";
+  send_data.fields["type"] = "TYPE_JOIN_CHATROOM";
   send_data.fields["transaction_id"] = std::to_string(login_token);
   send_data.fields["roomname"] = roomname;
+  bbs_TCPsock.send(&send_data);
+  Data_package recv_data;
+  bbs_TCPsock.recv(&recv_data);
+  int status = std::stoi(recv_data.fields["result_code"]);
+  if (status == 0) {
+    username = recv_data.fields.at("username");
+    chat_addr.sin_family = AF_INET;
+    chat_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    chat_addr.sin_port = htons(std::stoi(recv_data.fields.at("port")));
+  }
+
+  return status;
+}
+
+int on_C_restartChatroom(std::string &username, sockaddr_in &chat_addr) {
+  Data_package send_data;
+  send_data.fields["type"] = "TYPE_RESTART_CHATROOM";
+  send_data.fields["transaction_id"] = std::to_string(login_token);
   bbs_TCPsock.send(&send_data);
   Data_package recv_data;
   bbs_TCPsock.recv(&recv_data);

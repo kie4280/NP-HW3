@@ -39,5 +39,6 @@ int on_C_createChatroom(std::string port, std::string &username);
 std::string on_C_listChatroom();
 int on_C_joinChatroom(std::string roomname, sockaddr_in &chat_addr,
                       std::string &username);
+int on_C_restartChatroom(std::string &username, sockaddr_in &chat_addr);
 
 #endif

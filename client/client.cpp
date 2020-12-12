@@ -238,7 +238,7 @@ void startClient() {
       if (matched) {
         int result_code = on_C_createChatroom(argsm[1].str(), username);
         if (result_code == 0) {
-          std::cout << "start to create chatroom..." << std::endl;
+          warn("start to create chatroom...");
           int port = std::stoi(argsm[1].str());
           sockaddr_in addr;
           addr.sin_family = AF_INET;
@@ -282,9 +282,55 @@ void startClient() {
       } else {
         warn("Usage: join-chatroom <chatroom_name>");
       }
+    } else if (mode == MODE_BBS && ma[1].str() == "restart-chatroom") {
+      if (ma[2].str().size() == 0) {
+        sockaddr_in addr;
+        int status = on_C_restartChatroom(username, addr);
+        if (status == 0) {
+          warn("start to create chatroom...");
+          startServer(addr.sin_port);
+          startChat(addr);
+        } else if (status == 1) {
+          warn("Please login first");
+        } else if (status == 2) {
+          warn("Please create-chatroom first.");
+        } else if (status == 3) {
+          warn("Your chatroom is still running.");
+        }
+      } else {
+        warn("Usage: restart-chatroom");
+      }
+    } else if (mode == MODE_BBS && ma[1].str() == "attach") {
+      if (ma[2].str().size() == 0) {
+        sockaddr_in addr;
+        int status = on_C_restartChatroom(username, addr);
+        if (status == 0) {
+          warn("start to create chatroom...");
+          startServer(addr.sin_port);
+          startChat(addr);
+        } else if (status == 1) {
+          warn("Please login first");
+        } else if (status == 2) {
+          warn("Please create-chatroom first.");
+        } else if (status == 3) {
+          warn("Your chatroom is still running.");
+        }
+      } else {
+        warn("Usage: attach");
+      }
     } else if (mode == MODE_CHAT && ma[1].str() == "leave-chatroom") {
+      if (ma[2].str().size() == 0) {
+        Data_package send_data;
+        send_data.fields["type"] = "TYPE_LEAVE_CHATROOM";
+        send_data.fields["username"] = username;
+        chat_TCPsock.send(&send_data);
+
+      } else {
+        warn("Usage: leave-chatroom");
+      }
+
     } else if (mode == MODE_CHAT && ma[1].str() == "detach") {
-      Data_package send_data, recv_data;
+      Data_package send_data;
       send_data.fields["type"] = "TYPE_DETACH";
       send_data.fields["username"] = username;
       chat_TCPsock.send(&send_data);
@@ -308,7 +354,7 @@ void startChat(sockaddr_in chat_addr) {
   mode = MODE_CHAT;
   chat_TCPsock.connect(chat_addr);
   Data_package send_data, recv_data;
-  send_data.fields["type"] = "TYPE_JOIN_ROOM";
+  send_data.fields["type"] = "TYPE_JOIN_CHATROOM";
   send_data.fields["username"] = username;
   chat_TCPsock.send(&send_data);
   std::thread a(recvMessage);
@@ -346,8 +392,8 @@ void recvMessage() {
       }
     }
 
-  } catch (std::exception e) {
-    if (e.what() == "exit") {
+  } catch (const std::exception &e) {
+    if (strcmp(e.what(),"exit") == 0) {
       warn("recv msg thread exit");
     } else {
       warn(e.what());
