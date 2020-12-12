@@ -404,9 +404,10 @@ void on_C_joinroom(TCP_socket &tcpsock, const Data_package *recv_data) {
   } else {
     UL lk(login_mutex);
     std::string username = logins.at(userID);
+    std::string roomname = recv_data->fields.at("roomname");
     lk.unlock();
     Chatroom cr;
-    bool exists = db.getRoom(username, cr);
+    bool exists = db.getRoom(roomname, cr);
     if (exists && cr.opened) {
       out.fields["result_code"] = "0";
       out.fields["port"] = std::to_string(cr.port);

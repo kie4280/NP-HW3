@@ -29,7 +29,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/client.out",
-            "args": ["127.0.0.1", "3333"],
+            "args": ["127.0.0.1", "3334"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

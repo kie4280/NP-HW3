@@ -39,7 +39,7 @@ TCP_socket chat_listen_so;
 std::string getTime() {
   std::time_t now = std::time(0);
   std::tm *tstruct = std::localtime(&now);
-  return std::to_string(tstruct->tm_hour + 1) + ":" +
+  return std::to_string(tstruct->tm_hour) + ":" +
          std::to_string(tstruct->tm_min);
 }
 
@@ -72,8 +72,8 @@ void server_listener(int serv_port) {
           ch.who = "sys";
           ch.time = getTime();
           ch.msg = username + " join us.";
-          broadcastMSG(ch, connected);
           conn_mux.lock();
+          broadcastMSG(ch, connected);
           connected.push_back(so);
           conn_mux.unlock();
         }
@@ -94,9 +94,9 @@ void broadcastMSG(ChatRecord &msg, std::vector<TCP_socket> &who) {
   for (TCP_socket so : who) {
     Data_package send_data;
     send_data.fields["type"] = "TYPE_ROOM_MSG";
-    send_data.fields["msg.who"] = msg.who;
-    send_data.fields["msg.time"] = msg.time;
-    send_data.fields["msg.msg"] = msg.msg;
+    send_data.fields["who"] = msg.who;
+    send_data.fields["time"] = msg.time;
+    send_data.fields["msg"] = msg.msg;
     so.send(&send_data);
   }
 }
@@ -105,7 +105,7 @@ void server_broadcast_worker() {}
 
 void server_recv_command(TCP_socket tcpsock, std::string username) {
   Data_package send_data;
-  send_data.fields["type"] = "TYPE_MSG";
+  send_data.fields["type"] = "TYPE_SERVER_MSG";
   send_data.fields["message"] =
       "***************************\n"
       "**​Welcome to the chatroom​**\n"
@@ -123,12 +123,9 @@ void server_recv_command(TCP_socket tcpsock, std::string username) {
       Data_package recv_data;
       int len = tcpsock.recv(&recv_data);
       std::string type = recv_data.fields.at("type");
+
       if (type == "TYPE_LEAVE_ROOM" || len == 0) {
         UL l(conn_mux);
-        ChatRecord ch;
-        ch.who = "sys";
-        ch.time = getTime();
-        ch.msg = username + " leave us.";
         for (decltype(connected)::const_iterator it = connected.begin();
              it != connected.end(); ++it) {
           if (tcpsock == *it) {
@@ -137,21 +134,37 @@ void server_recv_command(TCP_socket tcpsock, std::string username) {
           }
         }
         if (username != roomname) {
+          ChatRecord ch;
+          ch.who = "sys";
+          ch.time = getTime();
+          ch.msg = username + " leave us.";
           broadcastMSG(ch, connected);
+        } else {
+          ChatRecord ch;
+          ch.who = "sys";
+          ch.time = getTime();
+          ch.msg = "the chatroom is close.";
+          broadcastMSG(ch, connected);
+          break;
         }
 
-        break;
       } else if (type == "TYPE_ROOM_MSG") {
         ChatRecord ch;
         ch.time = getTime();
         ch.who = username;
-        ch.msg = recv_data.fields["message"];
+        ch.msg = recv_data.fields.at("message");
         msg_mux.lock();
         last_three.push_back(ch);
         if (last_three.size() > 3) {
           last_three.pop_front();
         }
+
         msg_mux.unlock();
+        conn_mux.lock();
+        broadcastMSG(ch, connected);
+        conn_mux.unlock();
+      } else if (type == "TYPE_DETACH") {
+
       }
     }
   }

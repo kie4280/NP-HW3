@@ -17,7 +17,7 @@ extern int login_token;
 
 void on_C_exit();
 void startClient();
-void startChat(sockaddr_in chat_addr, std::string username);
+void startChat(sockaddr_in chat_addr);
 void startServer(int port);
 std::string getTime();
 std::string on_C_listUser();
