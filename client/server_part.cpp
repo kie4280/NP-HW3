@@ -117,7 +117,7 @@ void server_recv_command(TCP_socket tcpsock, std::string username) {
   std::string recent;
   msg_mux.lock();
   for (ChatRecord ch : last_three) {
-    recent += ch.who + "[" + ch.time + "] " + ch.msg + "\n";
+    recent += ch.who + "[" + ch.time + "]:" + ch.msg + "\n";
   }
   msg_mux.unlock();
   send_data.fields["message"] =

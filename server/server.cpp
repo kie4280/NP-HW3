@@ -265,16 +265,25 @@ void on_C_whoami(sockaddr_in &return_addr, const Data_package *data) {
 void on_C_logout(TCP_socket &tcpsock, const Data_package *rec) {
   Data_package out;
   out.fields["type"] = "TYPE_LOGOUT";
-  out.fields["transaction_id"] = std::to_string(-1);
+  out.fields["transaction_id"] = rec->fields.at("transaction_id");
+  int userID = stoi(rec->fields.at("transaction_id"));
   UL lk(login_mutex);
-  if (stoi(rec->fields.at("transaction_id")) != -1 &&
-      logins.find(stoi(rec->fields.at("transaction_id"))) != logins.end()) {
-    out.fields["message"] =
-        "Bye, " + logins[stoi(rec->fields.at("transaction_id"))] + ".";
-    logins.erase(stoi(rec->fields.at("transaction_id")));
+  if (userID == -1) {
+    out.fields["message"] = "Please login first.";
 
   } else {
-    out.fields["message"] = "Please login first.";
+    std::string username = logins.at(userID);
+    Chatroom cr;
+    bool exist = db.getRoom(username, cr);
+    if (exist && cr.opened) {
+      out.fields["message"] =
+          "Please do \"attach\" and \"leave-chatroom\" first.";
+
+    } else {
+      out.fields["message"] = "Bye, " + logins[userID] + ".";
+      logins.erase(userID);
+      out.fields["transaction_id"] = std::to_string(-1);
+    }
   }
   lk.unlock();
   tcpsock.send(&out);
@@ -505,7 +514,6 @@ void on_C_close_chatroom(TCP_socket &tcpsock, const Data_package *recv_data) {
 }
 
 void on_C_attach(TCP_socket &tcpsock, const Data_package *recv_data) {
-  
   Data_package out;
   int userID = std::stoi(recv_data->fields.at("transaction_id"));
 
@@ -514,7 +522,7 @@ void on_C_attach(TCP_socket &tcpsock, const Data_package *recv_data) {
   } else {
     UL lk(login_mutex);
     std::string username = logins.at(userID);
-    
+
     lk.unlock();
     Chatroom cr;
     bool exists = db.getRoom(username, cr);

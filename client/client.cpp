@@ -408,8 +408,8 @@ void recvMessage() {
       } else if (type == "TYPE_ROOM_MSG") {
         std::string from = recv_data.fields.at("who");
         if (from != username) {
-          std::cout << from << "[" << recv_data.fields.at("time") << "] "
-                    << recv_data.fields.at("msg") << std::endl;
+          std::cout << from << "[" << recv_data.fields.at("time")
+                    << "]:" << recv_data.fields.at("msg") << std::endl;
         }
       }
     }
