@@ -81,7 +81,6 @@ class Database {
   std::mutex postmux, boardmux;
   std::mutex roommux;
   std::unordered_map<std::string, Chatroom> rooms;
-  std::unordered_map<int, std::string> port_room_map;
 };
 
 #endif

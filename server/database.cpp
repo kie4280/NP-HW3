@@ -320,14 +320,13 @@ bool Database::setRoom(std::string roomname, Chatroom &room) {
 
 int Database::createChatroom(int port, std::string roomname) {
   UL r1(roommux);
-  if (port_room_map.find(port) != port_room_map.end()) {
+  if (rooms.find(roomname) != rooms.end()) {
     return 2;
   }
   Chatroom ch;
   ch.port = port;
   ch.opened = true;
   ch.roomname = roomname;
-  port_room_map[port] = roomname;
   rooms[roomname] = ch;
   return 0;
 }

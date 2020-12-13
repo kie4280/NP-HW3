@@ -397,6 +397,12 @@ TCP_socket::TCP_socket() {
     warn(strerror(errno));
     error("Error creating TCP socket");
   }
+  int reuse = true;
+  if (setsockopt(TCPsock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) <
+      0) {
+    warn(strerror(errno));
+    error("Error setting reuse address");
+  }
   instances = std::shared_ptr<std::atomic_int>(new std::atomic_int(0));
   (*instances)++;
 }
@@ -411,6 +417,12 @@ TCP_socket::TCP_socket(const TCP_socket &old) {
 
 TCP_socket::TCP_socket(int sock) {
   TCPsock = sock;
+  int reuse = 1;
+  if (setsockopt(TCPsock, SOL_SOCKET, SO_REUSEADDR, &reuse,
+                 sizeof(reuse)) < 0) {
+    warn(strerror(errno));
+    error("Error setting reuse address");
+  }
   instances = std::shared_ptr<std::atomic_int>(new std::atomic_int(0));
   (*instances)++;
 }
@@ -528,12 +540,11 @@ bool TCP_socket::accept(TCP_socket &sock) {
   return true;
 }
 
-void TCP_socket::disconnect() { shutdown(TCPsock, SHUT_RDWR); }
+void TCP_socket::disconnect() { close(TCPsock); }
 
 TCP_socket::~TCP_socket() {
   if (--(*instances) == 0) {
-    shutdown(TCPsock, SHUT_RDWR);
-    close(TCPsock);
+    disconnect();
     warn("TCP sock destroyed");
   }
 }

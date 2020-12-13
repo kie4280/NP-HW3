@@ -1,24 +1,27 @@
 #ifndef CLIENT_H
 #define CLIENT_H
 
+#include <condition_variable>
 #include <string>
 
 #include "socket.h"
 
-// #define ROOM_OP_LEAVE "leave"
-// #define ROOM_OP_CLOSE "close"
 #define MODE_BBS 1
 #define MODE_CHAT 2
 
 extern struct sockaddr_in bbs_serv_addr;
-extern UDP_socket bbs_UDPsock, chat_UDPsock;
-extern TCP_socket bbs_TCPsock, chat_TCPsock;
+extern UDP_socket bbs_UDPsock;
+extern TCP_socket bbs_TCPsock;
 extern int login_token;
+extern std::condition_variable cv;
+extern bool chat_server_ready;
+
+typedef std::unique_lock<std::mutex> UL;
 
 void on_C_exit();
 void startClient();
 void startChat(sockaddr_in chat_addr);
-void startServer(int port);
+void startServer(int port, std::string username);
 std::string getTime();
 std::string on_C_listUser();
 std::string on_C_whoami();

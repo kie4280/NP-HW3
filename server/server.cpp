@@ -52,6 +52,7 @@ void on_C_joinroom(TCP_socket &, const Data_package *);
 void on_C_list_chatroom(sockaddr_in &, const Data_package *);
 void on_C_create_chatroom(TCP_socket &, const Data_package *);
 void on_C_restart_chatroom(TCP_socket &, const Data_package *);
+void on_C_close_chatroom(TCP_socket &, const Data_package *);
 
 void on_sig(int signal) { exit(EXIT_SUCCESS); }
 
@@ -172,6 +173,8 @@ void handleTCP(TCP_socket tcpsock) {
       on_C_create_chatroom(tcpsock, &rec);
     } else if (type == "TYPE_RESTART_CHATROOM") {
       on_C_restart_chatroom(tcpsock, &rec);
+    } else if (type == "TYPE_CLOSE_CHATROOM") {
+      on_C_close_chatroom(tcpsock, &rec);
     }
   }
 }
@@ -462,7 +465,7 @@ void on_C_restart_chatroom(TCP_socket &tcpsock, const Data_package *recv_data) {
   if (login_id == -1) {
     out.fields["result_code"] = "1";
   } else {
-    std::string roomname = logins.at(login_id);
+    std::string roomname = logins.at(login_id);    
     Chatroom ch;
     bool exist = db.getRoom(roomname, ch);
     if (exist) {
@@ -472,10 +475,28 @@ void on_C_restart_chatroom(TCP_socket &tcpsock, const Data_package *recv_data) {
         ch.opened = true;
         db.setRoom(roomname, ch);
         out.fields["result_code"] = "0";
+        out.fields["username"] = roomname;
+        out.fields["port"] = std::to_string(ch.port);
       }
     } else {
       out.fields["result_code"] = "2";
     }
   }
+  tcpsock.send(&out);
+}
+
+void on_C_close_chatroom(TCP_socket &tcpsock, const Data_package *recv_data) {
+  UL lm(login_mutex);
+  Data_package out;
+
+  std::string roomname = recv_data->fields.at("username");
+  Chatroom ch;
+  bool exist = db.getRoom(roomname, ch);
+  if (exist) {
+    ch.opened = false;
+    db.setRoom(roomname, ch);
+    out.fields["port"] = std::to_string(ch.port);
+  } 
+  
   tcpsock.send(&out);
 }

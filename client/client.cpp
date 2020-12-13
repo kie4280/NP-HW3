@@ -14,11 +14,14 @@
 
 // variables
 struct sockaddr_in bbs_serv_addr;
-UDP_socket bbs_UDPsock, chat_UDPsock;
-TCP_socket bbs_TCPsock, chat_TCPsock;
+UDP_socket bbs_UDPsock;
+TCP_socket bbs_TCPsock;
+TCP_socket *chat_TCPsock;
 int login_token = -1;
 int mode = MODE_BBS;
 std::string username;
+std::condition_variable cv;
+std::mutex sl;
 
 // function declaration
 void sendMessage(std::string inputstring);
@@ -244,12 +247,14 @@ void startClient() {
           addr.sin_family = AF_INET;
           addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
           addr.sin_port = htons(port);
-          startServer(port);
+          startServer(port, username);
+          UL uu(sl);
+          cv.wait(uu, [] { return chat_server_ready; });
           startChat(addr);
         } else if (result_code == 1) {
-          std::cout << "Please login first." << std::endl;
+          warn("Please login first.");
         } else if (result_code == 2) {
-          std::cout << "User has already created the chatroom" << std::endl;
+          warn("User has already created the chatroom");
         }
       } else {
         warn("Usage: create-chatroom <port>");
@@ -271,10 +276,9 @@ void startClient() {
 
         int reply = on_C_joinChatroom(argsm[1].str(), chat_addr, username);
         if (reply == 1) {
-          std::cout << "Please login first." << std::flush;
+          warn("Please login first.");
         } else if (reply == 2) {
-          std::cout << "The chatroom does not exist or the chatroom is close."
-                    << std::endl;
+          warn("The chatroom does not exist or the chatroom is close.");
         } else if (reply == 0) {
           startChat(chat_addr);
         }
@@ -288,7 +292,9 @@ void startClient() {
         int status = on_C_restartChatroom(username, addr);
         if (status == 0) {
           warn("start to create chatroom...");
-          startServer(addr.sin_port);
+          startServer(ntohs(addr.sin_port), username);
+          UL uu(sl);
+          cv.wait(uu, [] { return chat_server_ready; });
           startChat(addr);
         } else if (status == 1) {
           warn("Please login first");
@@ -306,7 +312,7 @@ void startClient() {
         int status = on_C_restartChatroom(username, addr);
         if (status == 0) {
           warn("start to create chatroom...");
-          startServer(addr.sin_port);
+          addr.sin_addr.s_addr = htonl(INADDR_ANY);
           startChat(addr);
         } else if (status == 1) {
           warn("Please login first");
@@ -323,7 +329,7 @@ void startClient() {
         Data_package send_data;
         send_data.fields["type"] = "TYPE_LEAVE_CHATROOM";
         send_data.fields["username"] = username;
-        chat_TCPsock.send(&send_data);
+        chat_TCPsock->send(&send_data);
 
       } else {
         warn("Usage: leave-chatroom");
@@ -333,7 +339,7 @@ void startClient() {
       Data_package send_data;
       send_data.fields["type"] = "TYPE_DETACH";
       send_data.fields["username"] = username;
-      chat_TCPsock.send(&send_data);
+      chat_TCPsock->send(&send_data);
 
     }
 
@@ -352,11 +358,12 @@ void startClient() {
 
 void startChat(sockaddr_in chat_addr) {
   mode = MODE_CHAT;
-  chat_TCPsock.connect(chat_addr);
+  chat_TCPsock = new TCP_socket();
+  chat_TCPsock->connect(chat_addr);
   Data_package send_data, recv_data;
   send_data.fields["type"] = "TYPE_JOIN_CHATROOM";
   send_data.fields["username"] = username;
-  chat_TCPsock.send(&send_data);
+  chat_TCPsock->send(&send_data);
   std::thread a(recvMessage);
   a.detach();
 }
@@ -366,20 +373,37 @@ void sendMessage(std::string inputstring) {
   send_data.fields["type"] = "TYPE_ROOM_MSG";
   send_data.fields["message"] = inputstring;
   send_data.fields["username"] = username;
-  chat_TCPsock.send(&send_data);
+  chat_TCPsock->send(&send_data);
 }
 
 void recvMessage() {
   try {
     while (true) {
       Data_package recv_data;
-      chat_TCPsock.recv(&recv_data);
+      chat_TCPsock->recv(&recv_data);
       std::string type = recv_data.fields.at("type");
       if (type == "TYPE_EXIT_ROOM") {
+        if (recv_data.fields.at("action") == "close room") {
+          Data_package send_data, room_data;
+          send_data.fields["type"] = "TYPE_CLOSE_CHATROOM";
+          send_data.fields["username"] = username;
+          bbs_TCPsock.send(&send_data);
+          bbs_TCPsock.recv(&room_data);
+          TCP_socket csock;
+          sockaddr_in addr;
+          addr.sin_family = AF_INET;
+          addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+          addr.sin_port = htons(std::stoi(room_data.fields.at("port")));
+          csock.connect(addr);
+          Data_package cmd;
+          cmd.fields["type"] = "TYPE_CLOSE_CHATROOM";
+          csock.send(&cmd);
+        }
         warn("Welcome back to the BBS");
         std::cout << "% " << std::flush;
         mode = MODE_BBS;
-        chat_TCPsock = TCP_socket();
+        delete chat_TCPsock;
+        chat_TCPsock = nullptr;
         throw std::runtime_error("exit");
       } else if (type == "TYPE_SERVER_MSG") {
         std::cout << recv_data.fields.at("message") << std::flush;
@@ -393,7 +417,7 @@ void recvMessage() {
     }
 
   } catch (const std::exception &e) {
-    if (strcmp(e.what(),"exit") == 0) {
+    if (strcmp(e.what(), "exit") == 0) {
       warn("recv msg thread exit");
     } else {
       warn(e.what());
