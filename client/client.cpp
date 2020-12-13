@@ -309,17 +309,15 @@ void startClient() {
     } else if (mode == MODE_BBS && ma[1].str() == "attach") {
       if (ma[2].str().size() == 0) {
         sockaddr_in addr;
-        int status = on_C_restartChatroom(username, addr);
+        int status = on_C_attach(username, addr);
         if (status == 0) {
-          warn("start to create chatroom...");
-          addr.sin_addr.s_addr = htonl(INADDR_ANY);
           startChat(addr);
         } else if (status == 1) {
           warn("Please login first");
         } else if (status == 2) {
           warn("Please create-chatroom first.");
         } else if (status == 3) {
-          warn("Your chatroom is still running.");
+          warn("Please restart-chatroom first.");
         }
       } else {
         warn("Usage: attach");

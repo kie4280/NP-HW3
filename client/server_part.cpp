@@ -203,6 +203,26 @@ void server_recv_command(TCP_socket tcpsock, std::string username) {
         broadcastMSG(ch, connected);
         conn_mux.unlock();
       } else if (type == "TYPE_DETACH") {
+        UL l(conn_mux);
+        if (username == roomname) {
+          for (decltype(connected)::const_iterator it = connected.begin();
+               it != connected.end(); ++it) {
+            if (tcpsock == *it) {
+              connected.erase(it);
+              break;
+            }
+          }
+          Data_package exit_cmd;
+          exit_cmd.fields["type"] = "TYPE_EXIT_ROOM";
+          exit_cmd.fields["action"] = "leave";
+          tcpsock.send(&exit_cmd);
+        } else {
+          ChatRecord ch;
+          ch.who = username;
+          ch.time = getTime();
+          ch.msg = "detach";
+          broadcastMSG(ch, connected);
+        }
       }
     }
   }
