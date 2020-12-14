@@ -416,7 +416,7 @@ void recvMessage() {
 
   } catch (const std::exception &e) {
     if (strcmp(e.what(), "exit") == 0) {
-      warn("recv msg thread exit");
+      // warn("recv msg thread exit");
     } else {
       warn(e.what());
     }

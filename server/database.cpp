@@ -339,7 +339,7 @@ std::string Database::listChatroom() {
   for (std::unordered_map<std::string, Chatroom>::iterator it = rooms.begin();
        it != rooms.end(); ++it) {
     ss << std::left << std::setw(20) << it->second.roomname << std::left
-       << (it->second.opened ? "open" : "closed") << std::endl;
+       << (it->second.opened ? "open" : "close") << std::endl;
   }
   return ss.str();
 }

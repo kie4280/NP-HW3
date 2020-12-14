@@ -388,7 +388,7 @@ void UDP_socket::insert_check(sockaddr_in *src, size_t msg_size, int32_t msgid,
 UDP_socket::~UDP_socket() {
   if (--(*instances) == 0) {
     close(UDPsock);
-    warn("UDP sock destroyed");
+    // warn("UDP sock destroyed");
   }
 }
 
@@ -545,7 +545,7 @@ void TCP_socket::disconnect() { close(TCPsock); }
 TCP_socket::~TCP_socket() {
   if (--(*instances) == 0) {
     disconnect();
-    warn("TCP sock destroyed");
+    // warn("TCP sock destroyed");
   }
 }
 
