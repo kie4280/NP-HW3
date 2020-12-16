@@ -418,8 +418,8 @@ TCP_socket::TCP_socket(const TCP_socket &old) {
 TCP_socket::TCP_socket(int sock) {
   TCPsock = sock;
   int reuse = 1;
-  if (setsockopt(TCPsock, SOL_SOCKET, SO_REUSEADDR, &reuse,
-                 sizeof(reuse)) < 0) {
+  if (setsockopt(TCPsock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) <
+      0) {
     warn(strerror(errno));
     error("Error setting reuse address");
   }
@@ -455,21 +455,14 @@ int TCP_socket::send(const Data_package *data) {
 }
 
 int TCP_socket::recv(Data_package *data) {
-  pollfd po;
-  po.fd = TCPsock;
-  po.events = POLLIN;
-  while (true) {
-    int stat = poll(&po, 1, 100);
-    if (stat < 0) {
-      error(strerror(errno));
-    } else if (stat > 0 && (po.revents & POLLIN)) {
-      break;
-    }
-  }
+ 
   int32_t msg_len;
   ssize_t recvlen = ::recv(TCPsock, &msg_len, sizeof(msg_len), MSG_WAITALL);
 
   if (recvlen > 0) {
+    if (recvlen != sizeof(msg_len)) {
+      return 0;
+    }
     std::shared_ptr<char> msg(new char[msg_len], [](auto p) { delete[] p; });
     char *start = msg.get();
     while (msg_len > 0) {
@@ -481,6 +474,8 @@ int TCP_socket::recv(Data_package *data) {
         recvlen += rl;
       } else if (rl == 0) {
         closed = true;
+        warn("tcp close unexpectedly");
+        return 0;
       } else {
         warn("Error receiving using TCP");
         warn(strerror(errno));
